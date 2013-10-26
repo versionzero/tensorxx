@@ -1,46 +1,52 @@
-#ifndef __COO_H__
-#define __COO_H__
+#ifndef __COO3_H__
+#define __COO3_H__
 
 #include <algorithm>
 #include <set>
 
 /*
- * Compute B = A for COO matrix A, CSR matrix B
+ * Compute B = A for COO tensor A, TMR(3) CSR tensor B
  *
  *
  * Input Arguments:
  *   I  n_row      - number of rows in A
  *   I  n_col      - number of columns in A
+ *   I  n_tube     - number of tubes in A
  *   I  nnz        - number of nonzeros in A
  *   I  Ai[nnz(A)] - row indices
  *   I  Aj[nnz(A)] - column indices
+ *   I  Ak[nnz(A)] - tube indices
  *   T  Ax[nnz(A)] - nonzeros
  * Output Arguments:
  *   I Bp  - row pointer
  *   I Bj  - column indices
+ *   I Bk  - tube indices
  *   T Bx  - nonzeros
  *
  * Note:
- *   Output arrays Bp, Bj, and Bx must be preallocated
+ *   Output arrays Bp, Bj, Bk, and Bx must be preallocated
  *
  * Note: 
- *   Input:  row and column indices *are not* assumed to be ordered
+ *   Input: indices *are not* assumed to be ordered
  *           
  *   Note: duplicate entries are carried over to the CSR represention
  *
- *   Complexity: Linear.  Specifically O(nnz(A) + max(n_row,n_col))
+ *   Complexity: Linear.  Specifically O(nnz(A) + max(n_row,n_col,n_tube))
  * 
  */
 template <class I, class T>
-void coo_tocsr(const I n_row,
-               const I n_col,
-               const I nnz,
-               const I Ai[],
-               const I Aj[],
-               const T Ax[],
-                     I Bp[],
-                     I Bj[],
-                     T Bx[])
+void coo3_tocsr(const I n_row,
+                const I n_col,
+                const I n_tube,
+                const I nnz,
+                const I Ai[],
+                const I Aj[],
+                const I Ak[],
+                const T Ax[],
+                      I Bp[],
+                      I Bj[],
+                      I Bk[],
+                      T Bx[])
 {
     //compute number of non-zero entries per row of A 
     std::fill(Bp, Bp + n_row, 0);
@@ -57,12 +63,13 @@ void coo_tocsr(const I n_row,
     }
     Bp[n_row] = nnz; 
 
-    //write Aj,Ax into Bj,Bx
+    //write Aj,Ak,Ax into Bj,Bk,Bx
     for(I n = 0; n < nnz; n++){
         I row  = Ai[n];
         I dest = Bp[row];
 
         Bj[dest] = Aj[n];
+        Bk[dest] = Ak[n];
         Bx[dest] = Ax[n];
 
         Bp[row]++;
@@ -78,7 +85,7 @@ void coo_tocsr(const I n_row,
 }
 
 template<class I, class T>
-void coo_tocsc(const I n_row,
+void coo3_tocsc(const I n_row,
       	       const I n_col,
       	       const I nnz,
       	       const I Ai[],
@@ -87,7 +94,7 @@ void coo_tocsc(const I n_row,
       	             I Bp[],
       	             I Bi[],
       	             T Bx[])
-{ coo_tocsr<I,T>(n_col, n_row, nnz, Aj, Ai, Ax, Bp, Bi, Bx); }
+{ coo3_tocsr<I,T>(n_col, n_row, nnz, Aj, Ai, Ax, Bp, Bi, Bx); }
 
 /*
  * Compute B += A for COO matrix A, dense matrix B
@@ -103,7 +110,7 @@ void coo_tocsc(const I n_row,
  *
  */
 template <class I, class T>
-void coo_todense(const I n_row,
+void coo3_todense(const I n_row,
                  const I n_col,
                  const I nnz,
                  const I Ai[],
@@ -146,7 +153,7 @@ void coo_todense(const I n_row,
  * 
  */
 template <class I, class T>
-void coo_matvec(const I nnz,
+void coo3_matvec(const I nnz,
 	            const I Ai[], 
 	            const I Aj[], 
 	            const T Ax[],
@@ -168,7 +175,7 @@ void coo_matvec(const I nnz,
  *
  */
 template <class I>
-I coo_count_diagonals(const I nnz,
+I coo3_count_diagonals(const I nnz,
                       const I Ai[],
                       const I Aj[])
 {
