@@ -9,18 +9,13 @@
  *
  * Files/formats are:
  *  csr.h - Compressed Sparse Row format
- *  csc.h - Compressed Sparse Column format
  *  coo.h - COOrdinate format
- *  bsr.h - Block Sparse Row format
  *  dia.h - DIAgonal format
  *
  */
 
-#include "csr.h" 
-#include "csc.h"
+//#include "csr.h" 
 #include "coo.h"
-#include "coo3.h"
-#include "bsr.h"
-#include "dia.h"
+//#include "dia.h"
 
 #endif

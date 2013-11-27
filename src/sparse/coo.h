@@ -9,90 +9,153 @@
  *
  *
  * Input Arguments:
+ *   I  n_slice    - number of (frontal) slices in A
  *   I  n_row      - number of rows in A
  *   I  n_col      - number of columns in A
- *   I  n_tube     - number of tubes in A
+ *   I  nnz        - number of nonzeros in A
+ *   I  Ak[nnz(A)] - slice indices
+ *   I  Ai[nnz(A)] - row indices
+ *   I  Aj[nnz(A)] - column indices
+ *   T  Ax[nnz(A)] - nonzeros
+ * Output Arguments:
+ *   I B_RO - row pointer
+ *   I B_CO - column indices
+ *   I B_KO - tube indices
+ *   T B_V  - nonzeros
+ *
+ * Note:
+ *   Output arrays B_RO, B_CO, B_KO, and B_V must be preallocated
+ *
+ * Note:
+ *   Input: indices *are not* assumed to be ordered
+ *
+ *   Note: duplicate entries are carried over to the CSR represention
+ *
+ *   Complexity: Linear.  Specifically O(nnz(A) + max(n_row,n_col,n_slice))
+ *
+ */
+template <class I, class T>
+void coo_to_tmr_csr(const I n_slice,
+		    const I n_row,
+		    const I n_col,
+		    const I nnz,
+		    const I Ak[],
+		    const I Ai[],
+		    const I Aj[],
+		    const T Ax[],
+		    I       B_RO[],
+		    I       B_CO[],
+		    I       B_KO[],
+		    T       B_V[])
+{
+  /* Compute number of non-zero entries per row of A */
+  std::fill(B_RO, B_RO + n_row, 0);
+  for (I n = 0; n < nnz; n++) {
+    B_RO[Ai[n]]++;
+  }
+  
+  /* Cumulative-sum the nnz per row to get B_RO[] */
+  for (I i = 0, cumsum = 0; i < n_row; i++) {
+    I temp  = B_RO[i];
+    B_RO[i] = cumsum;
+    cumsum += temp;
+  }
+  B_RO[n_row] = nnz; 
+  
+  /* Write Aj,Ak,Ax into B_CO,B_KO,B_V */
+  for (I n = 0; n < nnz; n++) {
+    I row      = Ai[n];
+    I dest     = B_RO[row];
+    B_CO[dest] = Aj[n];
+    B_KO[dest] = Ak[n];
+    B_V[dest]  = Ax[n];
+    B_RO[row]++;
+  }
+  
+  for (I i = 0, last = 0; i <= n_row; i++) {
+    I temp  = B_RO[i];
+    B_RO[i] = last;
+    last    = temp;
+  }
+  
+  /* Now B_RO,B_CO,B_V form a CSR representation (with possible
+     duplicates) */
+}
+
+/*
+ * Compute B = A for COO tensor A, ECSR tensor B
+ *
+ *
+ * Input Arguments:
+ *   I  n_row      - number of rows in A
+ *   I  n_col      - number of columns in A
+ *   I  n_slice     - number of tubes in A
  *   I  nnz        - number of nonzeros in A
  *   I  Ai[nnz(A)] - row indices
  *   I  Aj[nnz(A)] - column indices
  *   I  Ak[nnz(A)] - tube indices
  *   T  Ax[nnz(A)] - nonzeros
  * Output Arguments:
- *   I Bp  - row pointer
- *   I Bj  - column indices
- *   I Bk  - tube indices
- *   T Bx  - nonzeros
+ *   I B_RO        - row pointer
+ *   I B_CO        - column/tube indices
+ *   T B_V         - nonzeros
  *
  * Note:
- *   Output arrays Bp, Bj, Bk, and Bx must be preallocated
+ *   Output arrays B_RO, B_CO and B_V must be preallocated
  *
- * Note: 
+ * Note:
  *   Input: indices *are not* assumed to be ordered
- *           
- *   Note: duplicate entries are carried over to the CSR represention
  *
- *   Complexity: Linear.  Specifically O(nnz(A) + max(n_row,n_col,n_tube))
- * 
+ *   Note: duplicate entries are carried over to the ECSR represention
+ *
+ *   Complexity: Linear.  Specifically O(nnz(A) + max(n_row,n_col,n_slice))
+ *
  */
 template <class I, class T>
-void coo3_to_csr3(const I n_tube,
-		  const I n_row,
-		  const I n_col,
-		  const I nnz,
-		  const I Ai[],
-		  const I Aj[],
-		  const I Ak[],
-		  const T Ax[],
-                        I Bp[],
-                        I Bj[],
-                        I Bk[],
-                        T Bx[])
+void coo_to_ecsr(const I n_row,
+		 const I n_col,
+		 const I n_slice,
+		 const I nnz,
+		 const I Ai[],
+		 const I Aj[],
+		 const I Ak[],
+		 const T Ax[],
+		 I       B_RO[],
+		 I       B_CK[],
+		 T       B_V[])
 {
   /* Compute number of non-zero entries per row of A */
-  std::fill(Bp, Bp + n_row, 0);
-  for (I n = 0; n < nnz; n++) {
-    Bp[Ai[n]]++;
+  std::fill(B_RO, B_RO + n_row, 0);
+  for (I i = 0; i < nnz; i++) {
+    B_RO[Ai[i]]++;
   }
   
-  /* Cumulative-sum the nnz per row to get Bp[] */
+  /* Cumulative-sum the nnz per row to get B_RO[] */
   for (I i = 0, cumsum = 0; i < n_row; i++) {
-    I temp  = Bp[i];
-    Bp[i]   = cumsum;
+    I temp  = B_RO[i];
+    B_RO[i] = cumsum;
     cumsum += temp;
   }
-  Bp[n_row] = nnz; 
+  B_RO[n_row] = nnz;
   
-  /* Write Aj,Ak,Ax into Bj,Bk,Bx */
-  for (I n = 0; n < nnz; n++) {
-    I row    = Ai[n];
-    I dest   = Bp[row];
-    Bj[dest] = Aj[n];
-    Bk[dest] = Ak[n];
-    Bx[dest] = Ax[n];
-    Bp[row]++;
+  /* Write Aj, Ak, Ax into B_CK, B_V */
+  for (I i = 0; i < nnz; i++) {
+    I row      = Ai[i];
+    I dest     = B_RO[row];
+    B_CK[dest] = (Aj[i] * n_slice) + Ak[i];
+    B_V[dest]  = Ax[i];
+    B_RO[row]++;
   }
   
   for (I i = 0, last = 0; i <= n_row; i++) {
-    I temp = Bp[i];
-    Bp[i]  = last;
-    last   = temp;
+    I temp  = B_RO[i];
+    B_RO[i] = last;
+    last    = temp;
   }
   
-  /* Now Bp,Bj,Bx form a CSR representation (with possible
+  /* Now B_RO, B_CK, B_V form a ECSR representation (with possible
      duplicates) */
 }
-
-template<class I, class T>
-void coo3_tocsc(const I n_row,
-      	       const I n_col,
-      	       const I nnz,
-      	       const I Ai[],
-      	       const I Aj[],
-      	       const T Ax[],
-      	             I Bp[],
-      	             I Bi[],
-      	             T Bx[])
-{ coo3_tocsr<I,T>(n_col, n_row, nnz, Aj, Ai, Ax, Bp, Bi, Bx); }
 
 /*
  * Compute B += A for COO matrix A, dense matrix B
@@ -104,29 +167,28 @@ void coo3_tocsc(const I n_row,
  *   I  Ai[nnz(A)]      - row indices
  *   I  Aj[nnz(A)]      - column indices
  *   T  Ax[nnz(A)]      - nonzeros 
- *   T  Bx[n_row*n_col] - dense matrix
+ *   T  B_V[n_row*n_col] - dense matrix
  *
  */
 template <class I, class T>
-void coo3_todense(const I n_row,
+void coo_todense(const I n_row,
                  const I n_col,
                  const I nnz,
                  const I Ai[],
                  const I Aj[],
                  const T Ax[],
-                       T Bx[],
+                       T B_V[],
 		 int fortran)
 {
-    if (!fortran) {
-        for(I n = 0; n < nnz; n++){
-            Bx[ n_col * Ai[n] + Aj[n] ] += Ax[n];
-        }
+  if (!fortran) {
+    for(I i = 0; i < nnz; i++){
+      B_V[ n_col * Ai[i] + Aj[i] ] += Ax[i];
     }
-    else {
-        for(I n = 0; n < nnz; n++){
-            Bx[ n_row * Aj[n] + Ai[n] ] += Ax[n];
-        }
+  } else {
+    for(I i = 0; i < nnz; i++){
+      B_V[ n_row * Aj[i] + Ai[i] ] += Ax[i];
     }
+  }
 }
 
 
@@ -151,7 +213,7 @@ void coo3_todense(const I n_row,
  * 
  */
 template <class I, class T>
-void coo3_matvec(const I nnz,
+void coo_matvec(const I nnz,
 	            const I Ai[], 
 	            const I Aj[], 
 	            const T Ax[],
@@ -173,7 +235,7 @@ void coo3_matvec(const I nnz,
  *
  */
 template <class I>
-I coo3_count_diagonals(const I nnz,
+I coo_count_diagonals(const I nnz,
                       const I Ai[],
                       const I Aj[])
 {
